@@ -1,0 +1,18 @@
+<launch>
+	<arg name="video_path" default="/home/xxt/BiSeNet" />
+	<arg name="video_name" default="video.mp4" />
+
+	<arg name="rviz" default="true" />
+
+	<arg name="rosbag" default="true" />
+	<arg name="bag_path" default="$(find bisenet_ros)/bag/tmp_bag" />
+
+<node pkg="bisenet_ros" name="video_to_topic" type="video_recorder" output="screen">
+	<param name="video_path" value="$(arg video_path)/$(arg video_name)"/>    
+</node>
+
+<node pkg="rosbag" type="record" name="rosbag_vis_recorder"
+	args="record -o $(arg bag_path) /rosout /clock /tf /usb_cam/image_raw" if="$(arg rosbag)"/>
+
+<node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find bisenet_ros)/cfg/video_record.rviz" if="$(arg rviz)" />
+</launch>

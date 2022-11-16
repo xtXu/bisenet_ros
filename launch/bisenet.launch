@@ -1,0 +1,24 @@
+<launch>
+	<arg name="module" value="$(find bisenet_ros)/model/bisenet/model.pt" />
+
+	<arg name="rosbag" default="true" />
+	<arg name="rate" default="1.0" />
+
+<node pkg="bisenet_ros" name="bisenet_node" type="bisenet_node" output="screen">
+	<remap from="/input_image" to="/usb_cam/image_raw"/>
+	<remap from="/output_image_label" to="/output_image_label"/>
+	<remap from="/output_image_rgb" to="/output_image_rgb"/>
+
+	<param name="torch/module_path" value="$(arg module)"/>    
+	<param name="cv/mean_r" value="0.3257"/>        
+	<param name="cv/mean_g" value="0.3690"/>        
+	<param name="cv/mean_b" value="0.3223"/>       
+	<param name="cv/std_r" value="0.2112"/>        
+	<param name="cv/std_g" value="0.2148"/>        
+	<param name="cv/std_b" value="0.2115"/>       
+</node>
+
+<node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find bisenet_ros)/cfg/rviz.rviz" />
+
+<node pkg="rosbag" type="play" name="player" output="screen" args="-r $(arg rate) $(find bisenet_ros)/bag/example_video.bag" if="$(arg rosbag)"/>
+</launch>
