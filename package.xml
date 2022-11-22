@@ -67,11 +67,13 @@
   <build_export_depend>cv_bridge</build_export_depend>
   <exec_depend>cv_bridge</exec_depend>
 
-	
   <build_depend>sensor_msgs</build_depend>
   <build_export_depend>sensor_msgs</build_export_depend>
   <exec_depend>sensor_msgs</exec_depend>
 
+  <build_depend>glog_catkin</build_depend>
+  <build_export_depend>glog_catkin</build_export_depend>
+  <exec_depend>glog_catkin</exec_depend>
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
