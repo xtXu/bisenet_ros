@@ -26,6 +26,8 @@ private:
 
   torch::jit::script::Module module_;
 
+	bool use_const_mean_std_;
+
 public:
   BisenetRosWrapper(ros::NodeHandle &nh, ros::NodeHandle &nh_private);
   ~BisenetRosWrapper();

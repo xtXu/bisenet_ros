@@ -17,6 +17,9 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   nh_private.param("cv/std_r", std_rgb[0], -1.0);
   nh_private.param("cv/std_g", std_rgb[1], -1.0);
   nh_private.param("cv/std_b", std_rgb[2], -1.0);
+
+  nh_private.param("use_const_mean_std", use_const_mean_std_, true);
+
   mean_ = torch::from_blob(mean_rgb, {3, 1, 1}, torch::kFloat64)
               .clone()
               .toType(torch::kFloat);
@@ -96,7 +99,13 @@ torch::Tensor &BisenetRosWrapper::creatTensorFromImage(const cv::Mat &img,
   // torch::Tensor mean_tensor = torch::from_blob(mean_.data(), {3,1,1},
   // torch::kFloat).clone(); torch::Tensor std_tensor =
   // torch::from_blob(std_.data(), {3,1,1}, torch::kFloat).clone();
-  tensor = tensor.sub_(mean_).div_(std_);
+	if (use_const_mean_std_) {
+		tensor = tensor.sub_(mean_).div_(std_);
+	} else {
+		torch::Tensor mean = torch::mean(tensor, {2,1}, true);
+		torch::Tensor std = torch::std(tensor, {2,1}, true, true);
+		tensor = tensor.sub_(mean).div_(std);
+	}
 
   // add a dimension for batch
   // because torch need B*C*H*W
@@ -182,6 +191,14 @@ void BisenetRosWrapper::generateLabelColor() {
       b = rand() % 256;
     }
   }
+
+	color_[255][0] = 0;
+	color_[255][1] = 0;
+	color_[255][2] = 0;
+
+	color_[10][0] = 255;
+	color_[10][1] = 255;
+	color_[10][2] = 255;
 }
 
 void BisenetRosWrapper::showImage(cv::Mat &img, std::string title) {
