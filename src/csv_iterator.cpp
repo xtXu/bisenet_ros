@@ -9,9 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "kimera_semantics/csv_iterator.h"
+#include <bisenet_ros/csv_iterator.h>
 
-namespace kimera {
 
 std::string const& CSVIterator::CSVRow::operator[](std::size_t index) const {
   return m_data[index];
@@ -71,4 +70,3 @@ bool CSVIterator::operator!=(CSVIterator const& rhs) {
   return !((*this) == rhs);
 }
 
-}  // namespace kimera

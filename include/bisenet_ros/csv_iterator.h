@@ -11,7 +11,6 @@
 #include <string>
 #include <vector>
 
-namespace kimera {
 
 /* Usage:
  * std::ifstream file("plop.csv");
@@ -63,4 +62,3 @@ class CSVIterator {
   CSVRow m_row;
 };
 
-}  // namespace kimera
