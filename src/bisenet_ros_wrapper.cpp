@@ -1,5 +1,8 @@
 #include <bisenet_ros/bisenet_ros_wrapper.h>
+#include <bisenet_ros/csv_iterator.h>
 #include <cv_bridge/cv_bridge.h>
+#include <fstream>
+#include <glog/logging.h>
 
 BisenetRosWrapper::BisenetRosWrapper(ros::NodeHandle &nh,
                                      ros::NodeHandle &nh_private)
@@ -19,6 +22,9 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   nh_private.param("cv/std_b", std_rgb[2], -1.0);
 
   nh_private.param("use_const_mean_std", use_const_mean_std_, true);
+  nh_private.param("use_color_map", use_color_map_, false);
+
+  nh_private.param("cv/color_file", color_file_, std::string(""));
 
   mean_ = torch::from_blob(mean_rgb, {3, 1, 1}, torch::kFloat64)
               .clone()
@@ -33,7 +39,12 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   image_rgb_pub_ = it_.advertise("/output_image_rgb", 1);
 
   loadTorchModule();
-  generateLabelColor();
+
+  if (use_color_map_) {
+    loadColorMap();
+  } else {
+    generateLabelColor();
+  }
 }
 
 void BisenetRosWrapper::loadTorchModule() {
@@ -99,13 +110,13 @@ torch::Tensor &BisenetRosWrapper::creatTensorFromImage(const cv::Mat &img,
   // torch::Tensor mean_tensor = torch::from_blob(mean_.data(), {3,1,1},
   // torch::kFloat).clone(); torch::Tensor std_tensor =
   // torch::from_blob(std_.data(), {3,1,1}, torch::kFloat).clone();
-	if (use_const_mean_std_) {
-		tensor = tensor.sub_(mean_).div_(std_);
-	} else {
-		torch::Tensor mean = torch::mean(tensor, {2,1}, true);
-		torch::Tensor std = torch::std(tensor, {2,1}, true, true);
-		tensor = tensor.sub_(mean).div_(std);
-	}
+  if (use_const_mean_std_) {
+    tensor = tensor.sub_(mean_).div_(std_);
+  } else {
+    torch::Tensor mean = torch::mean(tensor, {2, 1}, true);
+    torch::Tensor std = torch::std(tensor, {2, 1}, true, true);
+    tensor = tensor.sub_(mean).div_(std);
+  }
 
   // add a dimension for batch
   // because torch need B*C*H*W
@@ -141,27 +152,32 @@ cv::Mat &BisenetRosWrapper::generateSemRGB(const cv::Mat &semantic_img,
                                            cv::Mat &semantic_rgb) {
   int height = semantic_img.size[0];
   int width = semantic_img.size[1];
-  uchar semantnc_img_data[height][width][3];
+  uchar semantnc_img_data[height][width][4];
   for (int h = 0; h < height; h++) {
     for (int w = 0; w < width; w++) {
       uchar label = semantic_img.at<uchar>(h, w);
-      semantnc_img_data[h][w][0] = color_[label][0];
-      semantnc_img_data[h][w][1] = color_[label][1];
-      semantnc_img_data[h][w][2] = color_[label][2];
+			semantnc_img_data[h][w][0] = color_[label][0];
+			semantnc_img_data[h][w][1] = color_[label][1];
+			semantnc_img_data[h][w][2] = color_[label][2];
+      if (!use_color_map_) {
+        semantnc_img_data[h][w][3] = 255;
+      } else {
+        semantnc_img_data[h][w][3] = color_[label][3];
+      }
     }
   }
   semantic_rgb =
-      cv::Mat(cv::Size(width, height), CV_8UC3, semantnc_img_data).clone();
+      cv::Mat(cv::Size(width, height), CV_8UC4, semantnc_img_data).clone();
 
-	cv::cvtColor(semantic_rgb, semantic_rgb, CV_RGB2BGR);
+  cv::cvtColor(semantic_rgb, semantic_rgb, CV_RGBA2BGRA);
 
   return semantic_rgb;
 }
 
 void BisenetRosWrapper::imageInferCallback(
     const sensor_msgs::ImageConstPtr &msg) {
-	
-	// ROS_INFO("callback");
+
+  // ROS_INFO("callback");
   cv_bridge::CvImageConstPtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvShare(msg, "bgr8");
@@ -170,17 +186,19 @@ void BisenetRosWrapper::imageInferCallback(
     return;
   }
 
-	cv::Mat semantic_img, semantic_rgb;
-	semantic_img = inference(cv_ptr->image);
-	semantic_rgb = generateSemRGB(semantic_img, semantic_rgb);
+  cv::Mat semantic_img, semantic_rgb;
+  semantic_img = inference(cv_ptr->image);
+  semantic_rgb = generateSemRGB(semantic_img, semantic_rgb);
 
-	sensor_msgs::ImagePtr label_msg, rgb_msg;
-	label_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", semantic_img).toImageMsg();
-	rgb_msg = cv_bridge::CvImage(std_msgs::Header(),"bgr8", semantic_rgb).toImageMsg();
+  sensor_msgs::ImagePtr label_msg, rgb_msg;
+  label_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", semantic_img)
+                  .toImageMsg();
+  rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgra8", semantic_rgb)
+                .toImageMsg();
 
-	image_label_pub_.publish(label_msg);
-	image_rgb_pub_.publish(rgb_msg);
-	// ROS_INFO("callback_finish");
+  image_label_pub_.publish(label_msg);
+  image_rgb_pub_.publish(rgb_msg);
+  // ROS_INFO("callback_finish");
 }
 
 void BisenetRosWrapper::generateLabelColor() {
@@ -192,13 +210,13 @@ void BisenetRosWrapper::generateLabelColor() {
     }
   }
 
-	color_[255][0] = 0;
-	color_[255][1] = 0;
-	color_[255][2] = 0;
+  color_[255][0] = 0;
+  color_[255][1] = 0;
+  color_[255][2] = 0;
 
-	color_[10][0] = 255;
-	color_[10][1] = 255;
-	color_[10][2] = 255;
+  color_[10][0] = 255;
+  color_[10][1] = 255;
+  color_[10][2] = 255;
 }
 
 void BisenetRosWrapper::showImage(cv::Mat &img, std::string title) {
@@ -206,4 +224,24 @@ void BisenetRosWrapper::showImage(cv::Mat &img, std::string title) {
   cv::imshow("image", img);
   cv::waitKey();
   cv::destroyAllWindows();
+}
+
+void BisenetRosWrapper::loadColorMap() {
+  std::ifstream file(color_file_.c_str());
+  CHECK(file.good()) << "Couldn't open file: " << color_file_.c_str();
+  std::size_t row_number = 1;
+  for (CSVIterator loop(file); loop != CSVIterator(); ++loop) {
+    CHECK_EQ(loop->size(), 6) << "Row " << row_number << " is invalid.";
+
+    uint8_t r = std::atoi((*loop)[1].c_str());
+    uint8_t g = std::atoi((*loop)[2].c_str());
+    uint8_t b = std::atoi((*loop)[3].c_str());
+    uint8_t a = std::atoi((*loop)[4].c_str());
+    uint8_t id = std::atoi((*loop)[5].c_str());
+		color_[id][0] = r;
+		color_[id][1] = g;
+		color_[id][2] = b;
+		color_[id][3] = a;
+    row_number++;
+  }
 }

@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 	cv_bridge
 	image_transport
 	sensor_msgs
+	glog_catkin
 )
 
 ## System dependencies are found with CMake's conventions
@@ -163,6 +164,7 @@ include
 
 add_library(bisenet_ros_wrapper
   src/bisenet_ros_wrapper.cpp
+	# src/csv_iterator.cpp
 )
 target_link_libraries(bisenet_ros_wrapper ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
 set_property(TARGET bisenet_ros_wrapper PROPERTY CXX_STANDARD 14)
@@ -170,6 +172,7 @@ set_property(TARGET bisenet_ros_wrapper PROPERTY CXX_STANDARD 14)
 add_executable(bisenet_node 
 	src/bisenet_node.cpp
 	src/bisenet_ros_wrapper.cpp
+	src/csv_iterator.cpp
 	)
 target_link_libraries(bisenet_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
 set_property(TARGET bisenet_node PROPERTY CXX_STANDARD 14)
@@ -192,6 +195,7 @@ set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
 add_executable(test_wrapper 
 	test/test_wrapper_node.cpp
 	src/bisenet_ros_wrapper.cpp
+	src/csv_iterator.cpp
 	)
 target_link_libraries(test_wrapper ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
 set_property(TARGET test_wrapper PROPERTY CXX_STANDARD 14)

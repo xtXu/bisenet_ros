@@ -22,11 +22,15 @@ private:
   std::string module_path_;
   torch::Tensor mean_;
   torch::Tensor std_;
-  unsigned char color_[256][3];
+  unsigned char color_[256][4];
 
   torch::jit::script::Module module_;
 
 	bool use_const_mean_std_;
+	bool use_color_map_;
+
+	std::string color_file_;
+	// std::vector<std::vector<uint8_t>> color_map_;
 
 public:
   BisenetRosWrapper(ros::NodeHandle &nh, ros::NodeHandle &nh_private);
@@ -51,4 +55,6 @@ private:
                                       torch::Tensor &tensor);
 
 	void imageInferCallback(const sensor_msgs::ImageConstPtr& msg);
+
+	void loadColorMap();
 };
