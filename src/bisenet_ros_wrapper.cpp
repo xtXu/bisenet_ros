@@ -231,8 +231,8 @@ void BisenetRosWrapper::imgDepthRgbCallback(
     it_start++;
   }
 
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl;
-  semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl;
+  semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
   depthRgba2Pcl(depth_ptr->image, semantic_rgb, semantic_pcl);
 
   sensor_msgs::PointCloud2 pcl_msgs;
@@ -271,7 +271,7 @@ void BisenetRosWrapper::imageInferCallback(
 
 void BisenetRosWrapper::depthRgba2Pcl(
     const cv::Mat &depth, const cv::Mat &rgba,
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl) {
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl) {
   double height = 480.0;
   double width = 640.0;
   double center_x = width / 2;
@@ -294,14 +294,13 @@ void BisenetRosWrapper::depthRgba2Pcl(
       r = bgra[2];
       a = bgra[3];
 
-      pcl::PointXYZRGBA pt;
+      pcl::PointXYZRGB pt;
       pt.x = x;
       pt.y = y;
       pt.z = z;
       pt.r = r;
       pt.g = g;
       pt.b = b;
-      pt.a = a;
       semantic_pcl->push_back(pt);
     }
   }

@@ -78,7 +78,7 @@ private:
                            const sensor_msgs::ImageConstPtr &rgb);
 
   void depthRgba2Pcl(const cv::Mat &depth, const cv::Mat &rgba,
-                     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl);
+                     pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl);
 
   void loadColorMap();
 };

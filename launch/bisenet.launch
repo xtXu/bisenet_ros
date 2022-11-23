@@ -28,7 +28,7 @@
 	<param name="cv/std_g" value="0.2148"/>        
 	<param name="cv/std_b" value="0.2115"/>       
 
-	<param name="generate_semantic_pcl" value="false"/>       
+	<param name="generate_semantic_pcl" value="true"/>       
 
 	<param name="use_const_mean_std" value="false"/>       
 	<param name="use_color_map" value="$(arg use_color_file)"/>       
