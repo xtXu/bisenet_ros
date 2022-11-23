@@ -8,12 +8,15 @@
 
 	<!-- <arg name="input_image_topic" default="/input_image" /> -->
 	<arg name="input_image_topic" default="/unreal/unreal_sensor_model/ue_color_image_out" />
+	<arg name="input_rgb_image_topic" default="/unreal/unreal_sensor_model/ue_color_image_out" />
+	<arg name="input_depth_image_topic" default="/unreal/unreal_sensor_model/ue_depth_image_out" />
 
 	<arg name="use_color_file" default="true" />
 	<arg name="color_map_file" default="$(find bisenet_ros)/cfg/cityscapes_color.csv" />
 
 <node pkg="bisenet_ros" name="bisenet_node" type="bisenet_node" >
-	<remap from="/input_image" to="$(arg input_image_topic)"/>
+	<remap from="/input_rgb_image" to="$(arg input_rgb_image_topic)"/>
+	<remap from="/input_depth_image" to="$(arg input_depth_image_topic)"/>
 	<remap from="/output_image_label" to="/output_image_label"/>
 	<remap from="/output_image_rgb" to="/output_image_rgb"/>
 
