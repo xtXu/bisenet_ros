@@ -10,14 +10,26 @@
 #include <eigen3/Eigen/Eigen>
 
 #include <image_transport/image_transport.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/synchronizer.h>
+#include <sensor_msgs/Image.h>
 
 class BisenetRosWrapper {
 public:
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,
+                                                          sensor_msgs::Image>
+      ApproximateTimePolicy;
+
 private:
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
   image_transport::Publisher image_label_pub_;
   image_transport::Publisher image_rgb_pub_;
+
+  std::shared_ptr<message_filters::Subscriber<sensor_msgs::Image>> rgb_sub_;
+  std::shared_ptr<message_filters::Subscriber<sensor_msgs::Image>> depth_sub_;
+  std::shared_ptr<message_filters::Synchronizer<ApproximateTimePolicy>> sync_;
 
   std::string module_path_;
   torch::Tensor mean_;
@@ -26,11 +38,11 @@ private:
 
   torch::jit::script::Module module_;
 
-	bool use_const_mean_std_;
-	bool use_color_map_;
+  bool use_const_mean_std_;
+  bool use_color_map_;
 
-	std::string color_file_;
-	// std::vector<std::vector<uint8_t>> color_map_;
+  std::string color_file_;
+  // std::vector<std::vector<uint8_t>> color_map_;
 
 public:
   BisenetRosWrapper(ros::NodeHandle &nh, ros::NodeHandle &nh_private);
@@ -54,7 +66,10 @@ private:
   torch::Tensor &creatTensorFromImage(const cv::Mat &img,
                                       torch::Tensor &tensor);
 
-	void imageInferCallback(const sensor_msgs::ImageConstPtr& msg);
+  void imageInferCallback(const sensor_msgs::ImageConstPtr &msg);
 
-	void loadColorMap();
+  void imgDepthRgbCallback(const sensor_msgs::ImageConstPtr &depth,
+                           const sensor_msgs::ImageConstPtr &rgb);
+
+  void loadColorMap();
 };

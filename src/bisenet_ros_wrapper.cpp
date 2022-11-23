@@ -38,6 +38,15 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   image_label_pub_ = it_.advertise("/output_image_label", 1);
   image_rgb_pub_ = it_.advertise("/output_image_rgb", 1);
 
+  depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
+      nh, "/input_depth_image", 5));
+  rgb_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
+      nh, "/input_rgb_image", 5));
+  sync_.reset(new message_filters::Synchronizer<ApproximateTimePolicy>(
+      ApproximateTimePolicy(5), *depth_sub_, *rgb_sub_));
+  sync_->registerCallback(
+      boost::bind(&BisenetRosWrapper::imgDepthRgbCallback, this, _1, _2));
+
   loadTorchModule();
 
   if (use_color_map_) {
@@ -156,9 +165,9 @@ cv::Mat &BisenetRosWrapper::generateSemRGB(const cv::Mat &semantic_img,
   for (int h = 0; h < height; h++) {
     for (int w = 0; w < width; w++) {
       uchar label = semantic_img.at<uchar>(h, w);
-			semantnc_img_data[h][w][0] = color_[label][0];
-			semantnc_img_data[h][w][1] = color_[label][1];
-			semantnc_img_data[h][w][2] = color_[label][2];
+      semantnc_img_data[h][w][0] = color_[label][0];
+      semantnc_img_data[h][w][1] = color_[label][1];
+      semantnc_img_data[h][w][2] = color_[label][2];
       if (!use_color_map_) {
         semantnc_img_data[h][w][3] = 255;
       } else {
@@ -173,6 +182,9 @@ cv::Mat &BisenetRosWrapper::generateSemRGB(const cv::Mat &semantic_img,
 
   return semantic_rgb;
 }
+
+void BisenetRosWrapper::imgDepthRgbCallback(const sensor_msgs::ImageConstPtr &depth,
+                           const sensor_msgs::ImageConstPtr &rgb) {}
 
 void BisenetRosWrapper::imageInferCallback(
     const sensor_msgs::ImageConstPtr &msg) {
@@ -238,10 +250,10 @@ void BisenetRosWrapper::loadColorMap() {
     uint8_t b = std::atoi((*loop)[3].c_str());
     uint8_t a = std::atoi((*loop)[4].c_str());
     uint8_t id = std::atoi((*loop)[5].c_str());
-		color_[id][0] = r;
-		color_[id][1] = g;
-		color_[id][2] = b;
-		color_[id][3] = a;
+    color_[id][0] = r;
+    color_[id][1] = g;
+    color_[id][2] = b;
+    color_[id][3] = a;
     row_number++;
   }
 }
