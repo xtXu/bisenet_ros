@@ -48,6 +48,8 @@ private:
 	bool generate_semantic_pcl_;
 
   std::string color_file_;
+
+	std::vector<double> camera_params_;
   // std::vector<std::vector<uint8_t>> color_map_;
 
 public:

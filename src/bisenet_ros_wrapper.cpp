@@ -56,6 +56,16 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
                                &BisenetRosWrapper::imageInferCallback, this);
   }
 
+  // /unreal/unreal_ros_client/camera_params
+
+  while (!nh.hasParam("/unreal/unreal_ros_client/camera_params/width")) {
+    usleep(100000);
+  }
+  camera_params_ = {
+      nh.param("/unreal/unreal_ros_client/camera_params/width", -1.0),
+      nh.param("/unreal/unreal_ros_client/camera_params/height", -1.0),
+      nh.param("/unreal/unreal_ros_client/camera_params/focal_length", -1.0)};
+
   loadTorchModule();
 
   if (use_color_map_) {
@@ -272,11 +282,12 @@ void BisenetRosWrapper::imageInferCallback(
 void BisenetRosWrapper::depthRgba2Pcl(
     const cv::Mat &depth, const cv::Mat &rgba,
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl) {
-  double height = 480.0;
-  double width = 640.0;
+	double width = camera_params_[0];
+	double height = camera_params_[1];
+	double f = camera_params_[2];
+
   double center_x = width / 2;
   double center_y = height / 2;
-  double f = 320.0;
 
   for (int row = 0; row < depth.size[0]; row++) {
     for (int col = 0; col < depth.size[1]; col++) {
