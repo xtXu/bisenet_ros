@@ -25,6 +25,7 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
 
   nh_private.param("use_const_mean_std", use_const_mean_std_, true);
   nh_private.param("use_color_map", use_color_map_, false);
+  nh_private.param("generate_semantic_pcl", generate_semantic_pcl_, false);
 
   nh_private.param("cv/color_file", color_file_, std::string(""));
 
@@ -35,21 +36,25 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
              .clone()
              .toType(torch::kFloat);
 
-  // image_sub_ = it_.subscribe("/input_image", 1,
-  //                            &BisenetRosWrapper::imageInferCallback, this);
   image_label_pub_ = it_.advertise("/output_image_label", 1);
   image_rgb_pub_ = it_.advertise("/output_image_rgb", 1);
 
-  depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
-      nh, "/input_depth_image", 5));
-  rgb_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
-      nh, "/input_rgb_image", 5));
-  sync_.reset(new message_filters::Synchronizer<ApproximateTimePolicy>(
-      ApproximateTimePolicy(5), *depth_sub_, *rgb_sub_));
-  sync_->registerCallback(
-      boost::bind(&BisenetRosWrapper::imgDepthRgbCallback, this, _1, _2));
+  if (generate_semantic_pcl_) {
 
-	pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/semantic_pcl", 5);
+    depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
+        nh, "/input_depth_image", 5));
+    rgb_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
+        nh, "/input_rgb_image", 5));
+    sync_.reset(new message_filters::Synchronizer<ApproximateTimePolicy>(
+        ApproximateTimePolicy(5), *depth_sub_, *rgb_sub_));
+    sync_->registerCallback(
+        boost::bind(&BisenetRosWrapper::imgDepthRgbCallback, this, _1, _2));
+
+    pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/semantic_pcl", 5);
+  } else {
+    image_sub_ = it_.subscribe("/input_rgb_image", 1,
+                               &BisenetRosWrapper::imageInferCallback, this);
+  }
 
   loadTorchModule();
 
@@ -191,8 +196,6 @@ void BisenetRosWrapper::imgDepthRgbCallback(
     const sensor_msgs::ImageConstPtr &depth,
     const sensor_msgs::ImageConstPtr &rgb) {
 
-	ROS_INFO("pcl callback!");
-
   cv_bridge::CvImageConstPtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvShare(rgb, "bgr8");
@@ -221,23 +224,22 @@ void BisenetRosWrapper::imgDepthRgbCallback(
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
   }
-	cv::MatIterator_<float> it_start = depth_ptr->image.begin<float>();
-	cv::MatIterator_<float> it_end = depth_ptr->image.end<float>();
-	while (it_start != it_end) {
-		*it_start = std::min((*it_start), 6.0f);
-		it_start++;
-	}
+  cv::MatIterator_<float> it_start = depth_ptr->image.begin<float>();
+  cv::MatIterator_<float> it_end = depth_ptr->image.end<float>();
+  while (it_start != it_end) {
+    *it_start = std::min((*it_start), 6.0f);
+    it_start++;
+  }
 
-	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl;
-	semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGBA>);
-	depthRgba2Pcl(depth_ptr->image, semantic_rgb, semantic_pcl);
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl;
+  semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGBA>);
+  depthRgba2Pcl(depth_ptr->image, semantic_rgb, semantic_pcl);
 
-	sensor_msgs::PointCloud2 pcl_msgs;
-	pcl::toROSMsg(*semantic_pcl, pcl_msgs);
-	pcl_msgs.header.stamp = rgb->header.stamp;
-	pcl_msgs.header.frame_id = "camera";
-	pcl_pub_.publish(pcl_msgs);
-
+  sensor_msgs::PointCloud2 pcl_msgs;
+  pcl::toROSMsg(*semantic_pcl, pcl_msgs);
+  pcl_msgs.header.stamp = rgb->header.stamp;
+  pcl_msgs.header.frame_id = "camera";
+  pcl_pub_.publish(pcl_msgs);
 }
 
 void BisenetRosWrapper::imageInferCallback(
@@ -267,42 +269,42 @@ void BisenetRosWrapper::imageInferCallback(
   // ROS_INFO("callback_finish");
 }
 
-void BisenetRosWrapper::depthRgba2Pcl(const cv::Mat &depth, const cv::Mat &rgba,
-                     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl) {
-	double height = 480.0;
-	double width = 640.0;
-	double center_x = width / 2;
-	double center_y = height / 2;
-	double f = 320.0;
+void BisenetRosWrapper::depthRgba2Pcl(
+    const cv::Mat &depth, const cv::Mat &rgba,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl) {
+  double height = 480.0;
+  double width = 640.0;
+  double center_x = width / 2;
+  double center_y = height / 2;
+  double f = 320.0;
 
-	for (int row=0; row<depth.size[0]; row++) {
-		for (int col=0; col<depth.size[1]; col++) {
-			double dist = sqrt(pow(row-center_y, 2) + pow(col-center_x, 2));
-			double dep = depth.at<float>(row, col);
-			double x, y, z;
-			uchar r, g, b, a;
-			z = dep / sqrt((1 + pow(dist/f, 2)));
-			x = z * (col-center_x) / f;
-			y = z * (row-center_y) / f;
+  for (int row = 0; row < depth.size[0]; row++) {
+    for (int col = 0; col < depth.size[1]; col++) {
+      double dist = sqrt(pow(row - center_y, 2) + pow(col - center_x, 2));
+      double dep = depth.at<float>(row, col);
+      double x, y, z;
+      uchar r, g, b, a;
+      z = dep / sqrt((1 + pow(dist / f, 2)));
+      x = z * (col - center_x) / f;
+      y = z * (row - center_y) / f;
 
-			cv::Vec4b bgra = rgba.at<cv::Vec4b>(row, col);
-			b = bgra[0];
-			g = bgra[1];
-			r = bgra[2];
-			a = bgra[3];
+      cv::Vec4b bgra = rgba.at<cv::Vec4b>(row, col);
+      b = bgra[0];
+      g = bgra[1];
+      r = bgra[2];
+      a = bgra[3];
 
-			pcl::PointXYZRGBA pt;
-			pt.x = x;
-			pt.y = y;
-			pt.z = z;
-			pt.r = r;
-			pt.g = g;
-			pt.b = b;
-			pt.a = a;
-			semantic_pcl->push_back(pt);
-		}
-	}	
-	
+      pcl::PointXYZRGBA pt;
+      pt.x = x;
+      pt.y = y;
+      pt.z = z;
+      pt.r = r;
+      pt.g = g;
+      pt.b = b;
+      pt.a = a;
+      semantic_pcl->push_back(pt);
+    }
+  }
 }
 
 void BisenetRosWrapper::generateLabelColor() {

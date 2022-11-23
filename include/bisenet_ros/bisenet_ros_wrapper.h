@@ -45,6 +45,7 @@ private:
 
   bool use_const_mean_std_;
   bool use_color_map_;
+	bool generate_semantic_pcl_;
 
   std::string color_file_;
   // std::vector<std::vector<uint8_t>> color_map_;
