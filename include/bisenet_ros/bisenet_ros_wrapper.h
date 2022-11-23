@@ -15,6 +15,9 @@
 #include <message_filters/synchronizer.h>
 #include <sensor_msgs/Image.h>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
 class BisenetRosWrapper {
 public:
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,
@@ -30,6 +33,8 @@ private:
   std::shared_ptr<message_filters::Subscriber<sensor_msgs::Image>> rgb_sub_;
   std::shared_ptr<message_filters::Subscriber<sensor_msgs::Image>> depth_sub_;
   std::shared_ptr<message_filters::Synchronizer<ApproximateTimePolicy>> sync_;
+
+	ros::Publisher pcl_pub_;
 
   std::string module_path_;
   torch::Tensor mean_;
@@ -70,6 +75,9 @@ private:
 
   void imgDepthRgbCallback(const sensor_msgs::ImageConstPtr &depth,
                            const sensor_msgs::ImageConstPtr &rgb);
+
+  void depthRgba2Pcl(const cv::Mat &depth, const cv::Mat &rgba,
+                     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl);
 
   void loadColorMap();
 };

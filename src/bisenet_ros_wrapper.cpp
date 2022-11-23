@@ -4,6 +4,8 @@
 #include <fstream>
 #include <glog/logging.h>
 
+#include <pcl_conversions/pcl_conversions.h>
+
 BisenetRosWrapper::BisenetRosWrapper(ros::NodeHandle &nh,
                                      ros::NodeHandle &nh_private)
     : it_(nh) {}
@@ -33,8 +35,8 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
              .clone()
              .toType(torch::kFloat);
 
-  image_sub_ = it_.subscribe("/input_image", 1,
-                             &BisenetRosWrapper::imageInferCallback, this);
+  // image_sub_ = it_.subscribe("/input_image", 1,
+  //                            &BisenetRosWrapper::imageInferCallback, this);
   image_label_pub_ = it_.advertise("/output_image_label", 1);
   image_rgb_pub_ = it_.advertise("/output_image_rgb", 1);
 
@@ -46,6 +48,8 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
       ApproximateTimePolicy(5), *depth_sub_, *rgb_sub_));
   sync_->registerCallback(
       boost::bind(&BisenetRosWrapper::imgDepthRgbCallback, this, _1, _2));
+
+	pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/semantic_pcl", 5);
 
   loadTorchModule();
 
@@ -183,8 +187,58 @@ cv::Mat &BisenetRosWrapper::generateSemRGB(const cv::Mat &semantic_img,
   return semantic_rgb;
 }
 
-void BisenetRosWrapper::imgDepthRgbCallback(const sensor_msgs::ImageConstPtr &depth,
-                           const sensor_msgs::ImageConstPtr &rgb) {}
+void BisenetRosWrapper::imgDepthRgbCallback(
+    const sensor_msgs::ImageConstPtr &depth,
+    const sensor_msgs::ImageConstPtr &rgb) {
+
+	ROS_INFO("pcl callback!");
+
+  cv_bridge::CvImageConstPtr cv_ptr;
+  try {
+    cv_ptr = cv_bridge::toCvShare(rgb, "bgr8");
+  } catch (cv_bridge::Exception &e) {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  cv::Mat semantic_img, semantic_rgb;
+  semantic_img = inference(cv_ptr->image);
+  semantic_rgb = generateSemRGB(semantic_img, semantic_rgb);
+
+  sensor_msgs::ImagePtr label_msg, rgb_msg;
+  label_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", semantic_img)
+                  .toImageMsg();
+  rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgra8", semantic_rgb)
+                .toImageMsg();
+
+  image_label_pub_.publish(label_msg);
+  image_rgb_pub_.publish(rgb_msg);
+
+  cv_bridge::CvImagePtr depth_ptr;
+  try {
+    depth_ptr = cv_bridge::toCvCopy(depth, "32FC1");
+  } catch (cv_bridge::Exception &e) {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+	cv::MatIterator_<float> it_start = depth_ptr->image.begin<float>();
+	cv::MatIterator_<float> it_end = depth_ptr->image.end<float>();
+	while (it_start != it_end) {
+		*it_start = std::min((*it_start), 6.0f);
+		it_start++;
+	}
+
+	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl;
+	semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGBA>);
+	depthRgba2Pcl(depth_ptr->image, semantic_rgb, semantic_pcl);
+
+	sensor_msgs::PointCloud2 pcl_msgs;
+	pcl::toROSMsg(*semantic_pcl, pcl_msgs);
+	pcl_msgs.header.stamp = rgb->header.stamp;
+	pcl_msgs.header.frame_id = "camera";
+	pcl_pub_.publish(pcl_msgs);
+
+}
 
 void BisenetRosWrapper::imageInferCallback(
     const sensor_msgs::ImageConstPtr &msg) {
@@ -211,6 +265,44 @@ void BisenetRosWrapper::imageInferCallback(
   image_label_pub_.publish(label_msg);
   image_rgb_pub_.publish(rgb_msg);
   // ROS_INFO("callback_finish");
+}
+
+void BisenetRosWrapper::depthRgba2Pcl(const cv::Mat &depth, const cv::Mat &rgba,
+                     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr semantic_pcl) {
+	double height = 480.0;
+	double width = 640.0;
+	double center_x = width / 2;
+	double center_y = height / 2;
+	double f = 320.0;
+
+	for (int row=0; row<depth.size[0]; row++) {
+		for (int col=0; col<depth.size[1]; col++) {
+			double dist = sqrt(pow(row-center_y, 2) + pow(col-center_x, 2));
+			double dep = depth.at<float>(row, col);
+			double x, y, z;
+			uchar r, g, b, a;
+			z = dep / sqrt((1 + pow(dist/f, 2)));
+			x = z * (col-center_x) / f;
+			y = z * (row-center_y) / f;
+
+			cv::Vec4b bgra = rgba.at<cv::Vec4b>(row, col);
+			b = bgra[0];
+			g = bgra[1];
+			r = bgra[2];
+			a = bgra[3];
+
+			pcl::PointXYZRGBA pt;
+			pt.x = x;
+			pt.y = y;
+			pt.z = z;
+			pt.r = r;
+			pt.g = g;
+			pt.b = b;
+			pt.a = a;
+			semantic_pcl->push_back(pt);
+		}
+	}	
+	
 }
 
 void BisenetRosWrapper::generateLabelColor() {
