@@ -238,11 +238,19 @@ void BisenetRosWrapper::imgDepthRgbCallback(
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
   }
-  cv::MatIterator_<float> it_start = depth_ptr->image.begin<float>();
-  cv::MatIterator_<float> it_end = depth_ptr->image.end<float>();
-  while (it_start != it_end) {
-    *it_start = std::min((*it_start), 6.0f);
-    it_start++;
+  // cv::MatIterator_<float> it_start = depth_ptr->image.begin<float>();
+  // cv::MatIterator_<float> it_end = depth_ptr->image.end<float>();
+  // while (it_start != it_end) {
+  //   *it_start = std::min((*it_start), 6.0f);
+  //   it_start++;
+  // }
+
+  double r = depth_ptr->image.rows;
+  double c = depth_ptr->image.cols;
+  float *pix = depth_ptr->image.ptr<float>(0);
+  for (int i = 0; i < r * c; i++) {
+    *pix = std::min(*pix, 6.0f);
+    pix++;
   }
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl;
@@ -293,10 +301,15 @@ void BisenetRosWrapper::depthRgba2Pcl(
   double center_x = width / 2;
   double center_y = height / 2;
 
-  for (int row = 0; row < depth.size[0]; row++) {
-    for (int col = 0; col < depth.size[1]; col++) {
+  int rows = depth.rows;
+  int cols = depth.cols;
+  const float *pix = depth.ptr<float>(0);
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+
       double dist = sqrt(pow(row - center_y, 2) + pow(col - center_x, 2));
-      double dep = depth.at<float>(row, col);
+      // double dep = depth.at<float>(row, col);
+      double dep = *pix;
       double x, y, z;
       uchar r, g, b, a;
       z = dep / sqrt((1 + pow(dist / f, 2)));
@@ -317,6 +330,8 @@ void BisenetRosWrapper::depthRgba2Pcl(
       pt.g = g;
       pt.b = b;
       semantic_pcl->push_back(pt);
+
+      pix++;
     }
   }
 }
