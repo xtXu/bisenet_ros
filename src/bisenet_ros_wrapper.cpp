@@ -56,15 +56,19 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
                                &BisenetRosWrapper::imageInferCallback, this);
   }
 
-  // /unreal/unreal_ros_client/camera_params
-
+  int i = 0;
   while (!nh.hasParam("/unreal/unreal_ros_client/camera_params/width")) {
     usleep(100000);
+    if (++i > 50) {
+      ROS_ERROR("Can't load camera_params from "
+                "/unreal/unreal_ros_client/camera_params");
+      break;
+    }
   }
   camera_params_ = {
-      nh.param("/unreal/unreal_ros_client/camera_params/width", -1.0),
-      nh.param("/unreal/unreal_ros_client/camera_params/height", -1.0),
-      nh.param("/unreal/unreal_ros_client/camera_params/focal_length", -1.0)};
+      nh.param("/unreal/unreal_ros_client/camera_params/width", 640.0),
+      nh.param("/unreal/unreal_ros_client/camera_params/height", 480.0),
+      nh.param("/unreal/unreal_ros_client/camera_params/focal_length", 320.0)};
 
   loadTorchModule();
 
@@ -282,9 +286,9 @@ void BisenetRosWrapper::imageInferCallback(
 void BisenetRosWrapper::depthRgba2Pcl(
     const cv::Mat &depth, const cv::Mat &rgba,
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl) {
-	double width = camera_params_[0];
-	double height = camera_params_[1];
-	double f = camera_params_[2];
+  double width = camera_params_[0];
+  double height = camera_params_[1];
+  double f = camera_params_[2];
 
   double center_x = width / 2;
   double center_y = height / 2;
