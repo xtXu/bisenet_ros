@@ -1,16 +1,20 @@
 <launch>
 	<arg name="module" value="$(find bisenet_ros)/model/bisenet/model.pt" />
 
+	<!-- If rviz needed -->
 	<arg name="visualize" default="false" />
 
+	<!-- If use the bag file instead of online mode -->
 	<arg name="rosbag" default="false" />
 	<arg name="rate" default="1.0" />
 
+	<!-- topic name -->
 	<!-- <arg name="input_image_topic" default="/input_image" /> -->
 	<arg name="input_image_topic" default="/unreal/unreal_sensor_model/ue_color_image_out" />
 	<arg name="input_rgb_image_topic" default="/unreal/unreal_sensor_model/ue_color_image_out" />
 	<arg name="input_depth_image_topic" default="/unreal/unreal_sensor_model/ue_depth_image_out" />
 
+	<!-- If use a specific color map file, or generate color map randomly -->
 	<arg name="use_color_file" default="true" />
 	<arg name="color_map_file" default="$(find bisenet_ros)/cfg/cityscapes_color.csv" />
 
@@ -28,12 +32,15 @@
 	<param name="cv/std_g" value="0.2148"/>        
 	<param name="cv/std_b" value="0.2115"/>       
 
-	<param name="generate_semantic_pcl" value="true"/>       
-
-	<param name="use_const_mean_std" value="false"/>       
-	<param name="use_color_map" value="$(arg use_color_file)"/>       
+	<param name="cv/use_const_mean_std" value="false"/>       
+	<param name="cv/use_color_map" value="$(arg use_color_file)"/>       
 
 	<param name="cv/color_file" value="$(arg color_map_file)"/>       
+
+	<param name="pcl/generate_semantic_pcl" value="true"/>       
+	<param name="pcl/flatten_distance" value="6.0"/>       
+
+
 </node>
 
 <include file="$(find exploration_manager)/launch/city_experiment.launch"/>

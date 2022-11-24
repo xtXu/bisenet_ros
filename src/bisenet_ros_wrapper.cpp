@@ -23,11 +23,14 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   nh_private.param("cv/std_g", std_rgb[1], -1.0);
   nh_private.param("cv/std_b", std_rgb[2], -1.0);
 
-  nh_private.param("use_const_mean_std", use_const_mean_std_, true);
-  nh_private.param("use_color_map", use_color_map_, false);
-  nh_private.param("generate_semantic_pcl", generate_semantic_pcl_, false);
+  nh_private.param("cv/use_const_mean_std", use_const_mean_std_, true);
+  nh_private.param("cv/use_color_map", use_color_map_, false);
 
   nh_private.param("cv/color_file", color_file_, std::string(""));
+
+  nh_private.param("pcl/generate_semantic_pcl", generate_semantic_pcl_, false);
+  nh_private.param("pcl/maximum_distance", maximum_distance_, -1.0);
+  nh_private.param("pcl/flatten_distance", flatten_distance_, -1.0);
 
   mean_ = torch::from_blob(mean_rgb, {3, 1, 1}, torch::kFloat64)
               .clone()
@@ -238,20 +241,16 @@ void BisenetRosWrapper::imgDepthRgbCallback(
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
   }
-  // cv::MatIterator_<float> it_start = depth_ptr->image.begin<float>();
-  // cv::MatIterator_<float> it_end = depth_ptr->image.end<float>();
-  // while (it_start != it_end) {
-  //   *it_start = std::min((*it_start), 6.0f);
-  //   it_start++;
-  // }
 
-  double r = depth_ptr->image.rows;
-  double c = depth_ptr->image.cols;
-  float *pix = depth_ptr->image.ptr<float>(0);
-  for (int i = 0; i < r * c; i++) {
-    *pix = std::min(*pix, 6.0f);
-    pix++;
-  }
+	if (flatten_distance_ > 0.0) {
+		double r = depth_ptr->image.rows;
+		double c = depth_ptr->image.cols;
+		float *pix = depth_ptr->image.ptr<float>(0);
+		for (int i = 0; i < r * c; i++) {
+			*pix = std::min(*pix, static_cast<float>(flatten_distance_));
+			pix++;
+		}
+	}
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl;
   semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -312,6 +311,12 @@ void BisenetRosWrapper::depthRgba2Pcl(
       double dep = *pix;
       double x, y, z;
       uchar r, g, b, a;
+      pix++;
+
+			if (maximum_distance_ > 0.0 && dep > maximum_distance_) {
+				continue;
+			}
+
       z = dep / sqrt((1 + pow(dist / f, 2)));
       x = z * (col - center_x) / f;
       y = z * (row - center_y) / f;
@@ -331,7 +336,6 @@ void BisenetRosWrapper::depthRgba2Pcl(
       pt.b = b;
       semantic_pcl->push_back(pt);
 
-      pix++;
     }
   }
 }

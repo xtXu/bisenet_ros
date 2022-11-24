@@ -51,6 +51,11 @@ private:
 
 	std::vector<double> camera_params_;
   // std::vector<std::vector<uint8_t>> color_map_;
+	
+	//remove the pcl point whose depth exceed this value.
+	double maximum_distance_; 
+	//make the depth of pixel that exceed this value equal this value. 
+	double flatten_distance_;	
 
 public:
   BisenetRosWrapper(ros::NodeHandle &nh, ros::NodeHandle &nh_private);
