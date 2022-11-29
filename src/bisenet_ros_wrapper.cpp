@@ -4,6 +4,8 @@
 #include <fstream>
 #include <glog/logging.h>
 
+#include <pcl_conversions/pcl_conversions.h>
+
 BisenetRosWrapper::BisenetRosWrapper(ros::NodeHandle &nh,
                                      ros::NodeHandle &nh_private)
     : it_(nh) {}
@@ -21,10 +23,14 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   nh_private.param("cv/std_g", std_rgb[1], -1.0);
   nh_private.param("cv/std_b", std_rgb[2], -1.0);
 
-  nh_private.param("use_const_mean_std", use_const_mean_std_, true);
-  nh_private.param("use_color_map", use_color_map_, false);
+  nh_private.param("cv/use_const_mean_std", use_const_mean_std_, true);
+  nh_private.param("cv/use_color_map", use_color_map_, false);
 
   nh_private.param("cv/color_file", color_file_, std::string(""));
+
+  nh_private.param("pcl/generate_semantic_pcl", generate_semantic_pcl_, false);
+  nh_private.param("pcl/maximum_distance", maximum_distance_, -1.0);
+  nh_private.param("pcl/flatten_distance", flatten_distance_, -1.0);
 
   mean_ = torch::from_blob(mean_rgb, {3, 1, 1}, torch::kFloat64)
               .clone()
@@ -33,10 +39,39 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
              .clone()
              .toType(torch::kFloat);
 
-  image_sub_ = it_.subscribe("/input_image", 1,
-                             &BisenetRosWrapper::imageInferCallback, this);
   image_label_pub_ = it_.advertise("/output_image_label", 1);
   image_rgb_pub_ = it_.advertise("/output_image_rgb", 1);
+
+  if (generate_semantic_pcl_) {
+
+    depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
+        nh, "/input_depth_image", 5));
+    rgb_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(
+        nh, "/input_rgb_image", 5));
+    sync_.reset(new message_filters::Synchronizer<ApproximateTimePolicy>(
+        ApproximateTimePolicy(5), *depth_sub_, *rgb_sub_));
+    sync_->registerCallback(
+        boost::bind(&BisenetRosWrapper::imgDepthRgbCallback, this, _1, _2));
+
+    pcl_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/semantic_pcl", 5);
+  } else {
+    image_sub_ = it_.subscribe("/input_rgb_image", 1,
+                               &BisenetRosWrapper::imageInferCallback, this);
+  }
+
+  int i = 0;
+  while (!nh.hasParam("/unreal/unreal_ros_client/camera_params/width")) {
+    usleep(100000);
+    if (++i > 50) {
+      ROS_ERROR("Can't load camera_params from "
+                "/unreal/unreal_ros_client/camera_params");
+      break;
+    }
+  }
+  camera_params_ = {
+      nh.param("/unreal/unreal_ros_client/camera_params/width", 640.0),
+      nh.param("/unreal/unreal_ros_client/camera_params/height", 480.0),
+      nh.param("/unreal/unreal_ros_client/camera_params/focal_length", 320.0)};
 
   loadTorchModule();
 
@@ -156,9 +191,9 @@ cv::Mat &BisenetRosWrapper::generateSemRGB(const cv::Mat &semantic_img,
   for (int h = 0; h < height; h++) {
     for (int w = 0; w < width; w++) {
       uchar label = semantic_img.at<uchar>(h, w);
-			semantnc_img_data[h][w][0] = color_[label][0];
-			semantnc_img_data[h][w][1] = color_[label][1];
-			semantnc_img_data[h][w][2] = color_[label][2];
+      semantnc_img_data[h][w][0] = color_[label][0];
+      semantnc_img_data[h][w][1] = color_[label][1];
+      semantnc_img_data[h][w][2] = color_[label][2];
       if (!use_color_map_) {
         semantnc_img_data[h][w][3] = 255;
       } else {
@@ -172,6 +207,60 @@ cv::Mat &BisenetRosWrapper::generateSemRGB(const cv::Mat &semantic_img,
   cv::cvtColor(semantic_rgb, semantic_rgb, CV_RGBA2BGRA);
 
   return semantic_rgb;
+}
+
+void BisenetRosWrapper::imgDepthRgbCallback(
+    const sensor_msgs::ImageConstPtr &depth,
+    const sensor_msgs::ImageConstPtr &rgb) {
+
+  cv_bridge::CvImageConstPtr cv_ptr;
+  try {
+    cv_ptr = cv_bridge::toCvShare(rgb, "bgr8");
+  } catch (cv_bridge::Exception &e) {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  cv::Mat semantic_img, semantic_rgb;
+  semantic_img = inference(cv_ptr->image);
+  semantic_rgb = generateSemRGB(semantic_img, semantic_rgb);
+
+  sensor_msgs::ImagePtr label_msg, rgb_msg;
+  label_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", semantic_img)
+                  .toImageMsg();
+  rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgra8", semantic_rgb)
+                .toImageMsg();
+
+  image_label_pub_.publish(label_msg);
+  image_rgb_pub_.publish(rgb_msg);
+
+  cv_bridge::CvImagePtr depth_ptr;
+  try {
+    depth_ptr = cv_bridge::toCvCopy(depth, "32FC1");
+  } catch (cv_bridge::Exception &e) {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+	if (flatten_distance_ > 0.0) {
+		double r = depth_ptr->image.rows;
+		double c = depth_ptr->image.cols;
+		float *pix = depth_ptr->image.ptr<float>(0);
+		for (int i = 0; i < r * c; i++) {
+			*pix = std::min(*pix, static_cast<float>(flatten_distance_));
+			pix++;
+		}
+	}
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl;
+  semantic_pcl.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+  depthRgba2Pcl(depth_ptr->image, semantic_rgb, semantic_pcl);
+
+  sensor_msgs::PointCloud2 pcl_msgs;
+  pcl::toROSMsg(*semantic_pcl, pcl_msgs);
+  pcl_msgs.header.stamp = rgb->header.stamp;
+  pcl_msgs.header.frame_id = "camera";
+  pcl_pub_.publish(pcl_msgs);
 }
 
 void BisenetRosWrapper::imageInferCallback(
@@ -199,6 +288,56 @@ void BisenetRosWrapper::imageInferCallback(
   image_label_pub_.publish(label_msg);
   image_rgb_pub_.publish(rgb_msg);
   // ROS_INFO("callback_finish");
+}
+
+void BisenetRosWrapper::depthRgba2Pcl(
+    const cv::Mat &depth, const cv::Mat &rgba,
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr semantic_pcl) {
+  double width = camera_params_[0];
+  double height = camera_params_[1];
+  double f = camera_params_[2];
+
+  double center_x = width / 2;
+  double center_y = height / 2;
+
+  int rows = depth.rows;
+  int cols = depth.cols;
+  const float *pix = depth.ptr<float>(0);
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+
+      double dist = sqrt(pow(row - center_y, 2) + pow(col - center_x, 2));
+      // double dep = depth.at<float>(row, col);
+      double dep = *pix;
+      double x, y, z;
+      uchar r, g, b, a;
+      pix++;
+
+			if (maximum_distance_ > 0.0 && dep > maximum_distance_) {
+				continue;
+			}
+
+      z = dep / sqrt((1 + pow(dist / f, 2)));
+      x = z * (col - center_x) / f;
+      y = z * (row - center_y) / f;
+
+      cv::Vec4b bgra = rgba.at<cv::Vec4b>(row, col);
+      b = bgra[0];
+      g = bgra[1];
+      r = bgra[2];
+      a = bgra[3];
+
+      pcl::PointXYZRGB pt;
+      pt.x = x;
+      pt.y = y;
+      pt.z = z;
+      pt.r = r;
+      pt.g = g;
+      pt.b = b;
+      semantic_pcl->push_back(pt);
+
+    }
+  }
 }
 
 void BisenetRosWrapper::generateLabelColor() {
@@ -238,10 +377,10 @@ void BisenetRosWrapper::loadColorMap() {
     uint8_t b = std::atoi((*loop)[3].c_str());
     uint8_t a = std::atoi((*loop)[4].c_str());
     uint8_t id = std::atoi((*loop)[5].c_str());
-		color_[id][0] = r;
-		color_[id][1] = g;
-		color_[id][2] = b;
-		color_[id][3] = a;
+    color_[id][0] = r;
+    color_[id][1] = g;
+    color_[id][2] = b;
+    color_[id][3] = a;
     row_number++;
   }
 }
