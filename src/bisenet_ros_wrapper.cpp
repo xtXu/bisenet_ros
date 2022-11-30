@@ -32,6 +32,8 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
   nh_private.param("pcl/maximum_distance", maximum_distance_, -1.0);
   nh_private.param("pcl/flatten_distance", flatten_distance_, -1.0);
 
+	nh_private.param("use_gpu", use_gpu_, false);
+
   mean_ = torch::from_blob(mean_rgb, {3, 1, 1}, torch::kFloat64)
               .clone()
               .toType(torch::kFloat);
@@ -90,6 +92,11 @@ void BisenetRosWrapper::loadTorchModule() {
     std::cerr << "error loading the model\n";
     exit(-1);
   }
+
+	if (use_gpu_) {
+		module_.to(torch::kCUDA);
+	}
+
 }
 
 cv::Mat &BisenetRosWrapper::loadImage(const std::string img_path,
@@ -157,6 +164,10 @@ torch::Tensor &BisenetRosWrapper::creatTensorFromImage(const cv::Mat &img,
   // because torch need B*C*H*W
   tensor = tensor.unsqueeze(0);
 
+	if (use_gpu_) {
+		tensor = tensor.to(torch::kCUDA);
+	}
+
   return tensor;
 }
 
@@ -174,6 +185,10 @@ cv::Mat &BisenetRosWrapper::inferenceSemSeg(const torch::Tensor &input,
 
   output = output.squeeze(); // delete the batch dimension
   output = output.detach().to(torch::kU8);
+
+	if (use_gpu_) {
+		output = output.to(torch::kCPU);
+	}
 
   semantic_img = cv::Mat(cv::Size(output.size(1), output.size(0)), CV_8U,
                          output.data_ptr())

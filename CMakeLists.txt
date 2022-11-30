@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.0.2)
 project(bisenet_ros)
 
 # list(APPEND CMAKE_PREFIX_PATH "/usr/local/libtorch")
-set(Torch_DIR "/usr/local/libtorch/share/cmake/Torch")
+# set(Torch_DIR "/usr/local/libtorch/share/cmake/Torch")
+set(Torch_DIR "/usr/local/libtorch-gpu/libtorch/share/cmake/Torch")
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)

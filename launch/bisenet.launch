@@ -40,6 +40,7 @@
 	<param name="pcl/generate_semantic_pcl" value="true"/>       
 	<param name="pcl/flatten_distance" value="6.0"/>       
 
+	<param name="use_gpu" value="true"/>       
 
 </node>
 
