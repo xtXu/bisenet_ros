@@ -192,9 +192,9 @@ set_property(TARGET bisenet_node PROPERTY CXX_STANDARD 14)
 # add_executable(test_cv test/test_cv.cpp)
 # target_link_libraries(test_cv ${OpenCV_LIBRARIES})
 
-add_executable(cv_torch test/cv_torch.cpp)
-target_link_libraries(cv_torch ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
-set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
+# add_executable(cv_torch test/cv_torch.cpp)
+# target_link_libraries(cv_torch ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
+# set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
 
 # add_executable(test_wrapper 
 # 	test/test_wrapper_node.cpp

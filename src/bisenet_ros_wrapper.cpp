@@ -61,15 +61,15 @@ void BisenetRosWrapper::init(ros::NodeHandle &nh, ros::NodeHandle &nh_private) {
                                &BisenetRosWrapper::imageInferCallback, this);
   }
 
-  // int i = 0;
-  // while (!nh.hasParam("/unreal/unreal_ros_client/camera_params/width")) {
-  //   usleep(100000);
-  //   if (++i > 50) {
-  //     ROS_ERROR("Can't load camera_params from "
-  //               "/unreal/unreal_ros_client/camera_params");
-  //     break;
-  //   }
-  // }
+  int i = 0;
+  while (!nh.hasParam("/unreal/unreal_ros_client/camera_params/width")) {
+    usleep(100000);
+    if (++i > 50) {
+      ROS_ERROR("Can't load camera_params from "
+                "/unreal/unreal_ros_client/camera_params");
+      break;
+    }
+  }
   camera_params_ = {
       nh.param("/unreal/unreal_ros_client/camera_params/width", 640.0),
       nh.param("/unreal/unreal_ros_client/camera_params/height", 480.0),
