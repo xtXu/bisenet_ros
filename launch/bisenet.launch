@@ -18,30 +18,31 @@
 	<arg name="use_color_file" default="true" />
 	<arg name="color_map_file" default="$(find bisenet_ros)/cfg/cityscapes_color.csv" />
 
-<node pkg="bisenet_ros" name="bisenet_node" type="bisenet_node" >
-	<remap from="/input_rgb_image" to="$(arg input_rgb_image_topic)"/>
-	<remap from="/input_depth_image" to="$(arg input_depth_image_topic)"/>
-	<remap from="/output_image_label" to="/output_image_label"/>
-	<remap from="/output_image_rgb" to="/output_image_rgb"/>
-
-	<param name="torch/module_path" value="$(arg module)"/>    
-	<param name="cv/mean_r" value="0.3257"/>        
-	<param name="cv/mean_g" value="0.3690"/>        
-	<param name="cv/mean_b" value="0.3223"/>       
-	<param name="cv/std_r" value="0.2112"/>        
-	<param name="cv/std_g" value="0.2148"/>        
-	<param name="cv/std_b" value="0.2115"/>       
-
-	<param name="cv/use_const_mean_std" value="false"/>       
-	<param name="cv/use_color_map" value="$(arg use_color_file)"/>       
-
-	<param name="cv/color_file" value="$(arg color_map_file)"/>       
-
-	<param name="pcl/generate_semantic_pcl" value="true"/>       
-	<param name="pcl/flatten_distance" value="6.0"/>       
-
-
-</node>
+<!-- <node pkg="bisenet_ros" name="bisenet_node" type="bisenet_node" > -->
+<!-- 	<remap from="/input_rgb_image" to="$(arg input_rgb_image_topic)"/> -->
+<!-- 	<remap from="/input_depth_image" to="$(arg input_depth_image_topic)"/> -->
+<!-- 	<remap from="/output_image_label" to="/output_image_label"/> -->
+<!-- 	<remap from="/output_image_rgb" to="/output_image_rgb"/> -->
+<!---->
+<!-- 	<param name="torch/module_path" value="$(arg module)"/>     -->
+<!-- 	<param name="cv/mean_r" value="0.3257"/>         -->
+<!-- 	<param name="cv/mean_g" value="0.3690"/>         -->
+<!-- 	<param name="cv/mean_b" value="0.3223"/>        -->
+<!-- 	<param name="cv/std_r" value="0.2112"/>         -->
+<!-- 	<param name="cv/std_g" value="0.2148"/>         -->
+<!-- 	<param name="cv/std_b" value="0.2115"/>        -->
+<!---->
+<!-- 	<param name="cv/use_const_mean_std" value="false"/>        -->
+<!-- 	<param name="cv/use_color_map" value="$(arg use_color_file)"/>        -->
+<!---->
+<!-- 	<param name="cv/color_file" value="$(arg color_map_file)"/>        -->
+<!---->
+<!-- 	<param name="pcl/generate_semantic_pcl" value="true"/>        -->
+<!-- 	<param name="pcl/flatten_distance" value="6.0"/>        -->
+<!---->
+<!-- 	<param name="use_gpu" value="true"/>        -->
+<!---->
+<!-- </node> -->
 
 <include file="$(find exploration_manager)/launch/city_experiment.launch"/>
 

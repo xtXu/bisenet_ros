@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.0.2)
 project(bisenet_ros)
 
 # list(APPEND CMAKE_PREFIX_PATH "/usr/local/libtorch")
-set(Torch_DIR "/usr/local/libtorch/share/cmake/Torch")
+# set(Torch_DIR "/usr/local/libtorch/share/cmake/Torch")
+set(Torch_DIR "/usr/local/libtorch-gpu/libtorch/share/cmake/Torch")
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -191,9 +192,9 @@ set_property(TARGET bisenet_node PROPERTY CXX_STANDARD 14)
 # add_executable(test_cv test/test_cv.cpp)
 # target_link_libraries(test_cv ${OpenCV_LIBRARIES})
 
-# add_executable(cv_torch test/cv_torch.cpp)
-# target_link_libraries(cv_torch ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
-# set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
+add_executable(cv_torch test/cv_torch.cpp)
+target_link_libraries(cv_torch ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
+set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
 
 # add_executable(test_wrapper 
 # 	test/test_wrapper_node.cpp

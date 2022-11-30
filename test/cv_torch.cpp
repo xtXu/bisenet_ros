@@ -17,18 +17,20 @@ int main(int argc, char *argv[]) {
   // load image
   cv::Mat image;
   image =
-      cv::imread("/home/xxt/bisenet_ws/src/bisenet_ros/test/img/example.png");
+      cv::imread("/home/xxt/s_explore_ws/src/bisenet_ros/test/img/example.png");
 
   // load torch module
   torch::jit::script::Module module;
   try {
     module = torch::jit::load(
-        "/home/xxt/bisenet_ws/src/bisenet_ros/model/bisenet/model.pt");
+        "/home/xxt/s_explore_ws/src/bisenet_ros/model/bisenet/model.pt");
     module.eval(); // eval mode
   } catch (const c10::Error &e) {
     std::cerr << "error loading the model\n";
     return -1;
   }
+	torch::Device device = torch::kCUDA;
+	module.to(device);
 
   // log the original image size
   Eigen::Vector2i org_size = {image.size[0], image.size[1]};
@@ -67,6 +69,7 @@ int main(int argc, char *argv[]) {
   // add a dimension for batch
   // because torch need B*C*H*W
   tensor_img = tensor_img.unsqueeze(0);
+	tensor_img = tensor_img.to(device);
 
   // creat a torch module input
   std::vector<torch::jit::IValue> tensor_input;
@@ -79,6 +82,8 @@ int main(int argc, char *argv[]) {
   tensor_out = tensor_out.squeeze(); // delete the batch dimension
   tensor_out = tensor_out.detach();
   tensor_out = tensor_out.to(torch::kU8); // convert the type to uchar8
+	tensor_out = tensor_out.to(torch::kCPU);
+
   cv::Mat semantic_res(cv::Size(org_size[1], org_size[0]), CV_8U,
                        tensor_out.data_ptr());
 
@@ -106,9 +111,9 @@ int main(int argc, char *argv[]) {
                        semantnc_img_data);
 
   // save the semantic gray image and RGB image
-  cv::imwrite("/home/xxt/bisenet_ws/src/bisenet_ros/test/img/res.png",
+  cv::imwrite("/home/xxt/s_explore_ws/src/bisenet_ros/test/img/res.png",
               semantic_res);
-  cv::imwrite("/home/xxt/bisenet_ws/src/bisenet_ros/test/img/res_color.png",
+  cv::imwrite("/home/xxt/s_explore_ws/src/bisenet_ros/test/img/res_color.png",
               semantic_img);
 
   return 0;

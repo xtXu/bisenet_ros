@@ -46,6 +46,7 @@ private:
   bool use_const_mean_std_;
   bool use_color_map_;
 	bool generate_semantic_pcl_;
+	bool use_gpu_;
 
   std::string color_file_;
 
