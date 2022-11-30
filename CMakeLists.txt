@@ -180,31 +180,31 @@ add_executable(bisenet_node
 target_link_libraries(bisenet_node ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
 set_property(TARGET bisenet_node PROPERTY CXX_STANDARD 14)
 
-add_executable(test_torch test/test_torch.cpp)
-target_link_libraries(test_torch ${TORCH_LIBRARIES})
-set_property(TARGET test_torch PROPERTY CXX_STANDARD 14)
+# add_executable(test_torch test/test_torch.cpp)
+# target_link_libraries(test_torch ${TORCH_LIBRARIES})
+# set_property(TARGET test_torch PROPERTY CXX_STANDARD 14)
 
-add_executable(test_model_load test/test_model_load.cpp)
-target_link_libraries(test_model_load ${TORCH_LIBRARIES})
-set_property(TARGET test_model_load PROPERTY CXX_STANDARD 14)
+# add_executable(test_model_load test/test_model_load.cpp)
+# target_link_libraries(test_model_load ${TORCH_LIBRARIES})
+# set_property(TARGET test_model_load PROPERTY CXX_STANDARD 14)
 
-add_executable(test_cv test/test_cv.cpp)
-target_link_libraries(test_cv ${OpenCV_LIBRARIES})
+# add_executable(test_cv test/test_cv.cpp)
+# target_link_libraries(test_cv ${OpenCV_LIBRARIES})
 
-add_executable(cv_torch test/cv_torch.cpp)
-target_link_libraries(cv_torch ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
-set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
+# add_executable(cv_torch test/cv_torch.cpp)
+# target_link_libraries(cv_torch ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
+# set_property(TARGET cv_torch PROPERTY CXX_STANDARD 14)
 
-add_executable(test_wrapper 
-	test/test_wrapper_node.cpp
-	src/bisenet_ros_wrapper.cpp
-	src/csv_iterator.cpp
-	)
-target_link_libraries(test_wrapper ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
-set_property(TARGET test_wrapper PROPERTY CXX_STANDARD 14)
+# add_executable(test_wrapper 
+# 	test/test_wrapper_node.cpp
+# 	src/bisenet_ros_wrapper.cpp
+# 	src/csv_iterator.cpp
+# 	)
+# target_link_libraries(test_wrapper ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
+# set_property(TARGET test_wrapper PROPERTY CXX_STANDARD 14)
 
-add_executable(video_recorder test/video_recorder.cpp)
-target_link_libraries(video_recorder ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}) 
+# add_executable(video_recorder test/video_recorder.cpp)
+# target_link_libraries(video_recorder ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}) 
 #############
 ## Install ##
 #############
